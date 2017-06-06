@@ -1,0 +1,127 @@
+import React, { Component } from 'react';
+import {
+	FormGroup,
+	FormControl,
+	ControlLabel,
+} from 'react-bootstrap';
+import LoaderButton from '../components/LoaderButton';
+
+import './Login.css';
+
+import config from '../config.js';
+
+import { withRouter } from 'react-router-dom';
+
+import {
+	CognitoUserPool,
+	AuthenticationDetails,
+	CognitoUser
+} from 'amazon-cognito-identity-js';
+
+class Login extends Component {
+	constructor(props) {
+		super(props);
+
+		this.state = {
+			isLoading: false,
+			username: '',
+			password: '',
+		};
+
+		this.validateForm = this.validateForm.bind(this);
+		this.handleChange = this.handleChange.bind(this);
+		this.handleSubmit = this.handleSubmit.bind(this);
+	}
+
+	validateForm() {
+		return this.state.username.length > 0
+			&& this.state.password.length > 0;
+	}
+
+	handleChange(event) {
+		this.setState({
+			[event.target.id]: event.target.value
+		});
+	}
+
+
+	login(username, password) {
+		const userPool = new CognitoUserPool({
+			UserPoolId: config.cognito.USER_POOL_ID,
+			ClientId: config.cognito.APP_CLIENT_ID
+		});
+		const authenticationData = {
+			Username: username,
+			Password: password
+		};
+		const user = new CognitoUser({ Username: username, Pool: userPool });
+		const authenticationDetails = new AuthenticationDetails(authenticationData);
+
+		return new Promise((resolve, reject) => {
+			user.authenticateUser(authenticationDetails, {
+				onSuccess: (result) => resolve(result.getIdToken().getJwtToken()),
+				onFailure: (err) => {
+					reject(err)
+				}
+			})
+		});
+	}
+
+	handleSubmit = async (event) => {
+		event.preventDefault();
+
+		this.setState({ isLoading: true });
+
+		try {
+			const userToken = await this.login(this.state.username, this.state.password);
+			this.props.updateUserToken(userToken);
+			// this.props.history.push('/');
+		}
+		catch(e) {
+			if (e.code === "UserNotConfirmedException") {
+				this.props.setConfirmationAccount({
+					username: this.state.username,
+					password: this.state.password
+				});
+				this.props.history.push('/confirmation');
+				return;
+			}
+			alert(e);
+			this.setState({ isLoading: false });
+		}
+	}
+
+	render() {
+		return (
+			<div className="Login">
+       <form onSubmit={this.handleSubmit}>
+         <FormGroup controlId="username" bsSize="large">
+           <ControlLabel>Email</ControlLabel>
+           <FormControl
+             autoFocus
+             type="email"
+             value={this.state.username}
+             onChange={this.handleChange} />
+         </FormGroup>
+         <FormGroup controlId="password" bsSize="large">
+           <ControlLabel>Password</ControlLabel>
+           <FormControl
+             value={this.state.password}
+             onChange={this.handleChange}
+             type="password" />
+         </FormGroup>
+         <LoaderButton
+        		block
+        		bsSize="large" 
+        		disabled={ ! this.validateForm() }
+        		type="submit"
+        		isLoading={this.state.isLoading}
+        		text="Login"
+        		loadingText="Logging in..." />
+       </form>
+     </div>
+		);
+	}
+}
+
+export default withRouter(Login);
