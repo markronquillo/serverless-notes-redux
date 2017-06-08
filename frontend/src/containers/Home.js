@@ -8,40 +8,19 @@ import {
 
 import './Home.css';
 
-import { invokeApiGateway } from '../libs/awsLib';
+import * as actions from '../actions/index';
+
+import { connect } from 'react-redux';
 
 
 class Home extends Component {
   constructor(props) {
     super(props);
-
-    this.state = {
-      isLoading: false,
-      notes: []
-    }
   }
 
-  async componentDidMount() {
-    if (this.props.userToken === null) {
-      return;
-    }
-
-    this.setState({ isLoading: true });
-
-    try {
-      const results = await this.notes();
-
-      this.setState({ notes: results });
-    }
-    catch(e) {
-      alert(e);
-    }
-
-    this.setState({ isLoading: false });
-  }
-
-  notes() {
-    return invokeApiGateway({ path: '/notes'}, this.props.userToken);
+  componentDidMount() {
+    if (this.props.token) 
+      this.props.loadNotes(this.props.token);
   }
 
   renderNotesList(notes) {
@@ -82,8 +61,8 @@ class Home extends Component {
       <div className="notes">
         <PageHeader>Your Notes</PageHeader>
         <ListGroup>
-          { ! this.state.isLoading
-            && this.renderNotesList(this.state.notes) }
+          { ! this.props.isLoading
+            && this.renderNotesList(this.props.notes) }
         </ListGroup>
       </div>
     )
@@ -92,7 +71,7 @@ class Home extends Component {
   render() {
     return (
       <div className="Home">
-        { this.props.userToken === null
+        { this.props.token === null
           ? this.renderLander()
           : this.renderNotes()
         }
@@ -101,4 +80,18 @@ class Home extends Component {
   }
 }
 
-export default withRouter(Home);
+function mapStateToProps(state, ownProps) {
+  return {
+    token: state.auth.token,
+    isLoading: state.isLoading,
+    notes: state.notes,
+  }
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    loadNotes: (token) => dispatch(actions.beginLoadNotes(token)),
+  }
+}
+
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(Home));

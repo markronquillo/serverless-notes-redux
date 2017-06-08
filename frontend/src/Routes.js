@@ -15,14 +15,14 @@ import NotFound from './containers/NotFound';
 
 import AppliedRoute from './components/AppliedRoute';
 
-export default ({ childProps }) => (
+export default ({ token }) => (
   <Switch>
-    <AppliedRoute path="/" exact component={Home} props={childProps} />
-    <UnauthenticatedRoute path="/login" exact component={Login} props={childProps} />
-    <UnauthenticatedRoute  path="/signup" exact component={Signup} props={childProps} />
-    <AuthenticatedRoute  path="/confirmation" exact component={Confirmation} props={childProps} />
-    <AuthenticatedRoute  path="/notes/new" exact component={NewNote} props={childProps} />
-    <AuthenticatedRoute  path="/notes/:id" exact component={Notes} props={childProps} />
+    <AppliedRoute path="/" exact component={Home} token={token} />
+    <UnauthenticatedRoute path="/login" exact component={Login} token={token} />
+    <UnauthenticatedRoute  path="/signup" exact component={Signup} token={token} />
+    <UnauthenticatedRoute  path="/confirmation" exact component={Confirmation} token={token} />
+    <AuthenticatedRoute  path="/notes/new" exact component={NewNote} token={token} />
+    <AuthenticatedRoute  path="/notes/:id" exact component={Notes} token={token} />
     <Route component={NotFound} />
   </Switch>
 );

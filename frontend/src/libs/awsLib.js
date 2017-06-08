@@ -2,6 +2,12 @@ import AWS from 'aws-sdk';
 
 import config from '../config.js';
 
+import {
+	CognitoUserPool,
+	AuthenticationDetails,
+	CognitoUser,
+  CognitoUserAttribute,
+} from 'amazon-cognito-identity-js';
 
 export async function invokeApiGateway(
 	{
@@ -64,6 +70,89 @@ export function getAwsCredentials(userToken) {
 	});
 
 	return AWS.config.credentials.getPromise();
+}
+
+export function getUserToken(currentUser) {
+	return new Promise((resolve, reject) => {
+	  currentUser.getSession(function(err, session) {
+	    if (err) {
+	      reject(err);
+	      return;
+	    }
+	    resolve(session.getIdToken().getJwtToken());
+	  });
+	});
+}
+
+export function getCognitoUserPoolInstance() {
+	const userPool = new CognitoUserPool({
+	  UserPoolId: config.cognito.USER_POOL_ID,
+	  ClientId: config.cognito.APP_CLIENT_ID
+	});
+
+	return userPool
+}
+
+export function login(username, password) {
+	const userPool = getCognitoUserPoolInstance();
+
+	const authenticationData = {
+		Username: username,
+		Password: password
+	};
+	const user = new CognitoUser({ Username: username, Pool: userPool });
+	const authenticationDetails = new AuthenticationDetails(authenticationData);
+
+	return new Promise((resolve, reject) => {
+		user.authenticateUser(authenticationDetails, {
+			onSuccess: (result) => resolve(result.getIdToken().getJwtToken()),
+			onFailure: (err) => {
+				reject(err)
+			}
+		})
+	});
+}
+
+export function signup(username, password) {
+	const userPool = getCognitoUserPoolInstance();
+    const attributeEmail = new CognitoUserAttribute({ Name : 'email', Value : username });
+    return new Promise((resolve, reject) => (
+     userPool.signUp(username, password, [attributeEmail], null, (err, result) => {
+       if (err) {
+         reject(err);
+         return;
+       }
+
+       resolve(result.user);
+     })
+   ));
+}
+
+export function confirm(user, confirmationCode) {
+	return new Promise((resolve, reject) => (
+		user.confirmRegistration(confirmationCode, true, function(err, result) {
+			if (err) {
+				reject(err);
+				return;
+			}
+			resolve(result);
+		})
+	));
+}
+
+export function authenticate(user, username, password) {
+	const authenticationData = {
+		Username: username,
+		Password: password
+	};
+	const authenticationDetails = new AuthenticationDetails(authenticationData)
+
+	return new Promise((resolve, reject) => (
+		user.authenticateUser(authenticationDetails, {
+			onSuccess: (result) => resolve(result.getIdToken().getJwtToken()),
+			onFailure: (err) => reject(err)
+		})
+	));
 }
 
 

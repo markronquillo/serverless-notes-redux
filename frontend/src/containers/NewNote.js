@@ -11,6 +11,8 @@ import './NewNote.css';
 
 import { invokeApiGateway, s3Upload } from '../libs/awsLib';
 
+import { connect } from 'react-redux';
+import * as actions from '../actions/index';
 
 class NewNote extends Component {
 	constructor(props) {
@@ -18,7 +20,6 @@ class NewNote extends Component {
 
 		this.file = null;
 		this.state = { 
-			isLoading: null,
 			content: '',
 		};
 
@@ -48,11 +49,11 @@ class NewNote extends Component {
 			return;
 		}
 
-		this.setState({ isLoading: true });
+		this.props.setIsLoading(true);
 
 		try {
 			const uploadedFilename = (this.file)
-				? (await s3Upload(this.file, this.props.userToken)).Location
+				? (await s3Upload(this.file, this.props.token)).Location
 				: null;
 
 			console.log(uploadedFilename);
@@ -61,12 +62,12 @@ class NewNote extends Component {
 				content: this.state.content,
 				attachment: uploadedFilename
 			});
-
 			this.props.history.push('/');
 		} catch(e) {
 			alert(e);
-			this.setState({ isLoading: false });
 		}
+
+		this.props.setIsLoading(false);
 	}
 
 	createNote(note) {
@@ -74,7 +75,7 @@ class NewNote extends Component {
 			path: '/notes',
 			method: 'POST',
 			body: note,
-		}, this.props.userToken);
+		}, this.props.token);
 	}
 
 	render() {
@@ -99,7 +100,7 @@ class NewNote extends Component {
 						bsSize="large"
 						disabled={ ! this.validateForm() }
 						type="submit"
-						isLoading={this.state.isLoading}
+						isLoading={this.props.isLoading}
 						text="Create"
 						loadingText="Creating..." />
 				</form>
@@ -108,4 +109,17 @@ class NewNote extends Component {
 	}
 }
 
-export default withRouter(NewNote);
+function mapStateToProps(state, ownProps) {
+	return {
+		token: state.auth.token,
+		isLoading: state.isLoading
+	}
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    setIsLoading: (value) => dispatch(actions.setIsLoading(value)),
+  }
+}
+
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(NewNote));

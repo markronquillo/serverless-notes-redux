@@ -8,16 +8,17 @@ import {
 } from 'react-bootstrap';
 import LoaderButton from '../components/LoaderButton';
 
+import {
+	CognitoUser,
+} from 'amazon-cognito-identity-js';
+
 import './Signup.css';
 
-import {
-  AuthenticationDetails,
-  CognitoUserPool,
-  CognitoUserAttribute,
-  CognitoUser,
-} from 'amazon-cognito-identity-js';
-import config from '../config.js';
+import { confirm, authenticate, getCognitoUserPoolInstance } from '../libs/awsLib';
 
+import { connect } from 'react-redux';
+
+import * as actions from '../actions/index';
 
 class Confirmation extends Component {
 
@@ -33,6 +34,12 @@ class Confirmation extends Component {
 		this.handleChange = this.handleChange.bind(this);
 	}
 
+	componentWillMount() {
+		if ( ! this.props.confirmationAccount) {
+			this.props.history.push('/login');
+		}
+	}
+
 	handleChange(event) {
 		this.setState({
 			[event.target.id]: event.target.value
@@ -46,63 +53,32 @@ class Confirmation extends Component {
 	handleConfirmationSubmit = async (event) => {
 		event.preventDefault();
 
-		this.setState({ isLoading: true });
-
+		this.props.setIsLoading(true);
 		try {
-			const userPool = new CognitoUserPool({
-				UserPoolId: config.cognito.USER_POOL_ID,
-				ClientId: config.cognito.APP_CLIENT_ID
-			});
+			const userPool = getCognitoUserPoolInstance() ;
 
 			var userData = {
-	        Username : this.props.confirmationAccount.username,
-	        Pool : userPool
+	      Username : this.props.confirmationAccount.username,
+        Pool : userPool
 	    };
 
 	    const user = new CognitoUser(userData);
 
-			await this.confirm(user, this.state.confirmationCode);
-			const userToken = await this.authenticate(
+			await confirm(user, this.state.confirmationCode);
+
+			const userToken = await authenticate(
 				user,
 				this.props.confirmationAccount.username,
 				this.props.confirmationAccount.password
 			);
 
-			this.props.updateUserToken(userToken);
+			this.props.saveToken(userToken);
 			this.props.history.push('/');
 		}
 		catch(e) {
 			alert(e);
-			this.setState({ isLoading: false });
 		}
-	}
-
-	confirm(user, confirmationCode) {
-
-		return new Promise((resolve, reject) => (
-			user.confirmRegistration(confirmationCode, true, function(err, result) {
-				if (err) {
-					reject(err);
-					return;
-				}
-				resolve(result);
-			})
-		));
-	}
-
-	authenticate(user, username, password) {
-		const authenticationData = {
-			Username: username,
-			Password: password
-		};
-		const authenticationDetails = new AuthenticationDetails(authenticationData)
-
-		return new Promise((resolve, reject) => (
-			user.authenticateUser(authenticationDetails, {
-				onSuccess: (result) => resolve(result.getIdToken().getJwtToken()),
-				onFailure: (err) => reject(err)
-			})
-		));
+		this.props.setIsLoading(false);
 	}
 
 	render() {
@@ -114,10 +90,13 @@ class Confirmation extends Component {
 						<FormControl
 							autoFocus
 							type="tel"
-							value={this.state.confirmationCode}
+							value={this.props.confirmationCode}
 							onChange={this.handleChange} />
 						<HelpBlock> 
 							Please check your email or the code.
+						</HelpBlock>
+						<HelpBlock> 
+							email: {this.props.confirmationAccount && this.props.confirmationAccount.username}
 						</HelpBlock>
 					</FormGroup>
 
@@ -126,7 +105,7 @@ class Confirmation extends Component {
 						bsSize="large"
 						disabled={ ! this.validateConfirmationForm() }
 						type="submit"
-						isLoading={this.state.isLoading}
+						isLoading={this.props.isLoading}
 						text="Verify"
 						loadingText="Verifying..."
 						/>
@@ -137,4 +116,20 @@ class Confirmation extends Component {
 
 }
 
-export default Confirmation;
+function mapStateToProps(state, ownProps) {
+  return {
+		confirmationAccount: state.auth.confirmationAccount,
+    isLoading: state.isLoading
+  }
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+  	saveToken: (token) => dispatch(actions.saveToken(token)),
+    setIsLoading: (value) => dispatch(actions.setIsLoading(value)),
+		setConfirmationAccount: (account) => dispatch(actions.setConfirmationAccount(account)),
+  }
+}
+
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(Confirmation));
+

@@ -12,6 +12,9 @@ import config from '../config.js';
 
 import './Notes.css';
 
+import { connect } from 'react-redux';
+import * as actions from '../actions/index';
+
 class Notes extends Component {
   constructor(props) {
     super(props);
@@ -21,7 +24,6 @@ class Notes extends Component {
     this.state = {
       note: null,
       content: '',
-      isLoading: null,
     };
   }
 
@@ -38,7 +40,7 @@ class Notes extends Component {
   }
 
   getNote() {
-    return invokeApiGateway({ path: `/notes/${this.props.match.params.id}`}, this.props.userToken);
+    return invokeApiGateway({ path: `/notes/${this.props.match.params.id}`}, this.props.token);
   }
 
   validateForm() {
@@ -66,7 +68,7 @@ class Notes extends Component {
       path: `/notes/${this.props.match.params.id}`,
       method: 'PUT',
       body: note,
-    }, this.props.userToken);
+    }, this.props.token);
   }
 
   handleSubmit = async (event) => {
@@ -78,11 +80,10 @@ class Notes extends Component {
       return;
     }
 
-    this.setState({ isLoading: true });
-
+    this.props.setIsLoading(true);
     try {
       if (this.file) {
-        uploadedFilename = (await s3Upload(this.file, this.props.userToken)).Location;
+        uploadedFilename = (await s3Upload(this.file, this.props.token)).Location;
       }
 
       await this.saveNote({
@@ -90,19 +91,21 @@ class Notes extends Component {
         content: this.state.content,
         attachment: uploadedFilename || this.state.note.attachment,
       });
+
+      this.props.editNote(this.state.note);
       this.props.history.push('/');
     }
     catch(e) {
       alert(e);
-      this.setState({ isLoading: false });
     }
+    this.props.setIsLoading(false);
   }
 
   deleteNote() {
     return invokeApiGateway({
       path: `/notes/${this.props.match.params.id}`,
       method: 'DELETE',
-    }, this.props.userToken);
+    }, this.props.token);
   }
 
   handleDelete = async (event) => {
@@ -118,6 +121,7 @@ class Notes extends Component {
 
     try {
       await this.deleteNote();
+      this.props.deleteNote(this.state.note);
       this.props.history.push('/');
     }
     catch(e) {
@@ -161,7 +165,7 @@ class Notes extends Component {
                   bsSize="large"
                   disabled={ ! this.validateForm() }
                   type="submit"
-                  isLoading={this.state.isLoading}
+                  isLoading={this.props.isLoading}
                   text="Save"
                   loadingText="Saving..." />
                 <LoaderButton
@@ -180,5 +184,22 @@ class Notes extends Component {
   }
 }
 
-export default withRouter(Notes);
+
+function mapStateToProps(state, ownProps) {
+  return {
+    token: state.auth.token,
+    isLoading: state.isLoading
+  }
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    setIsLoading: (value) => dispatch(actions.setIsLoading(value)),
+    deleteNote: (note) => dispatch(actions.deleteNote(note)),
+    editNote: (note) => dispatch(actions.editNote(note)),
+  }
+}
+
+
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(Notes));
 

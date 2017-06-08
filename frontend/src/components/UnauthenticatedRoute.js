@@ -13,12 +13,12 @@ function querystring(name, url = window.location.href) {
   return decodeURIComponent(results[2].replace(/\+/g, " "));
 }
 
-export default ({ component: C, props: cProps, ...rest }) => {
+export default ({ component: C, token: token, ...rest }) => {
   const redirect = querystring('redirect');
 
   return <Route {...rest} render={props => (
-      cProps.userToken === null
-        ? <C {...props} {...cProps} />
+      token === null
+        ? <C {...props} />
         : <Redirect to={
             (redirect === '' || redirect === null)
               ? '/'

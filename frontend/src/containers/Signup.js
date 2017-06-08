@@ -9,12 +9,13 @@ import {
 import LoaderButton from '../components/LoaderButton';
 import './Signup.css';
 
-import {
-  AuthenticationDetails,
-  CognitoUserPool,
-  CognitoUserAttribute,
-} from 'amazon-cognito-identity-js';
 import config from '../config.js';
+
+import { signup } from '../libs/awsLib';
+
+import { connect } from 'react-redux';
+
+import * as actions from '../actions/index';
 
 class Signup extends Component {
 	constructor(props) {
@@ -40,7 +41,6 @@ class Signup extends Component {
 			&& this.state.password === this.state.confirmPassword;
 	}
 
-
 	handleChange(event) {
 		this.setState({
 			[event.target.id]: event.target.value
@@ -50,10 +50,10 @@ class Signup extends Component {
 	handleSubmit = async (event) => {
 		event.preventDefault();
 		
-		this.setState({ isLoading: true });
+		this.props.setIsLoading(true);
 
 		try {
-			const newUser = await this.signup(this.state.username, this.state.password);
+			const newUser = await signup(this.state.username, this.state.password);
 			this.props.setConfirmationAccount({
 				username: this.state.username,
 				password: this.state.password
@@ -63,29 +63,7 @@ class Signup extends Component {
 		catch(e) {
 			alert(e);
 		}
-		this.setState({ isLoading: false });
-	}
-
-	signup(username, password) {
-		const userPool = new CognitoUserPool({
-			UserPoolId: config.cognito.USER_POOL_ID,
-			ClientId: config.cognito.APP_CLIENT_ID
-		});
-
-		const attributeEmail = new CognitoUserAttribute({
-			Name: 'email',
-			Value: username
-		});
-
-		return new Promise((resolve, reject) => (
-			userPool.signUp(username, password, [attributeEmail], null, (err, result) => {
-				if (err) {
-					reject(err);
-					return;
-				}
-				resolve(result.user);
-			})
-		));
+		this.props.setIsLoading(false);
 	}
 
 	renderForm() {
@@ -122,7 +100,7 @@ class Signup extends Component {
 					bsSize="large"				
 					disabled={ ! this.validateForm() }
 					type="submit"
-					isLoading={this.state.isLoading}
+					isLoading={this.props.isLoading}
 					text="Signup"
 					loadingText="Signing up..." />
 			</form>
@@ -138,5 +116,18 @@ class Signup extends Component {
 	}
 }
 
+function mapStateToProps(state, ownProps) {
+  return {
+    token: state.auth.token,
+    isLoading: state.isLoading
+  }
+}
 
-export default withRouter(Signup);
+function mapDispatchToProps(dispatch) {
+  return {
+    setIsLoading: (value) => dispatch(actions.setIsLoading(value)),
+		setConfirmationAccount: (account) => dispatch(actions.setConfirmationAccount(account)),
+  }
+}
+
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(Signup));
